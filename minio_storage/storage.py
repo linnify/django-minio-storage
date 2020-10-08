@@ -40,6 +40,7 @@ class MinioStorage(Storage):
         bucket_name: str,
         *,
         base_url: T.Optional[str] = None,
+        external_base_url: T.Optional[str] = None,
         file_class=None,
         auto_create_bucket: bool = False,
         presign_urls: bool = False,
@@ -54,6 +55,7 @@ class MinioStorage(Storage):
         self.client = minio_client
         self.bucket_name = bucket_name
         self.base_url = base_url
+        self.external_base_url = external_base_url
 
         self.backup_format = backup_format
         self.backup_bucket = backup_bucket
@@ -294,6 +296,21 @@ class MinioStorage(Storage):
                     url_parts.fragment,
                 )
             )
+
+        if self.external_base_url is not None:
+            url_parts = urlsplit(url)
+            external_url_parts = urlsplit(self.external_base_url)
+
+            url = urlunsplit(
+                (
+                    url_parts.scheme,
+                    external_url_parts.netloc,
+                    url_parts.path,
+                    url_parts.query,
+                    url_parts.fragment,
+                )
+            )
+
         return url
 
     def url(
@@ -318,8 +335,20 @@ class MinioStorage(Storage):
                     strip_end(self.base_url), urllib.parse.quote(strip_beg(name))
                 )
             else:
+
+                def get_endpoint(self):
+                    if self.external_base_url is not None:
+                        url_parts = urlsplit(self.client._endpoint_url)
+                        external_url_parts = urlsplit(self.external_base_url)
+                        return urlunsplit(
+                            (
+                                url_parts.scheme,
+                                external_url_parts.netloc,
+                            )
+                        )
+
                 url = get_target_url(
-                    self.client._endpoint_url,
+                    endpoint_url=get_endpoint(self),
                     bucket_name=self.bucket_name,
                     object_name=name,
                     # bucket_region=region,
@@ -385,6 +414,7 @@ class MinioMediaStorage(MinioStorage):
         client = create_minio_client_from_settings()
         bucket_name = get_setting("MINIO_STORAGE_MEDIA_BUCKET_NAME")
         base_url = get_setting("MINIO_STORAGE_MEDIA_URL", None)
+        external_base_url = get_setting("MINIO_STORAGE_MEDIA_EXTERNAL_URL", None)
         auto_create_bucket = get_setting(
             "MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET", False
         )
@@ -415,6 +445,7 @@ class MinioMediaStorage(MinioStorage):
             auto_create_policy=auto_create_policy,
             policy_type=policy_type,
             base_url=base_url,
+            external_base_url=external_base_url,
             presign_urls=presign_urls,
             backup_format=backup_format,
             backup_bucket=backup_bucket,
@@ -428,6 +459,7 @@ class MinioStaticStorage(MinioStorage):
     def __init__(self):
         client = create_minio_client_from_settings()
         base_url = get_setting("MINIO_STORAGE_STATIC_URL", None)
+        external_base_url = get_setting("MINIO_STORAGE_STATIC_EXTERNAL_URL", None)
         bucket_name = get_setting("MINIO_STORAGE_STATIC_BUCKET_NAME")
         auto_create_bucket = get_setting(
             "MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET", False
@@ -456,6 +488,7 @@ class MinioStaticStorage(MinioStorage):
             auto_create_policy=auto_create_policy,
             policy_type=policy_type,
             base_url=base_url,
+            external_base_url=external_base_url,
             presign_urls=presign_urls,
             assume_bucket_exists=assume_bucket_exists,
             object_metadata=object_metadata,
