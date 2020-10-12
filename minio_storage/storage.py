@@ -341,6 +341,7 @@ class MinioStorage(Storage):
                         url_parts = urlsplit(self.client._endpoint_url)
                         external_url_parts = urlsplit(self.external_base_url)
                         return url_parts.scheme + "://" + external_url_parts.netloc
+                    return self.client._endpoint_url
 
                 url = get_target_url(
                     endpoint_url=get_endpoint(self),
